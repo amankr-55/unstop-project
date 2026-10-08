@@ -1,0 +1,26 @@
+{
+  "name": "bharat-gst-sentinel",
+  "version": "1.0.0",
+  "description": "Autonomous Indian GST Compliance, Invoice Auditor & GSTR-2B Reconciler Skill for AI Agents",
+  "main": "scripts/gst_engine.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node evals/eval_suite.js",
+    "eval": "node evals/eval_suite.js",
+    "validate-gstin": "node scripts/gst_engine.js validate-gstin"
+  },
+  "keywords": [
+    "ai-agent",
+    "agentic-ai",
+    "llm-skill",
+    "gst",
+    "india",
+    "compliance",
+    "invoice-audit",
+    "gstr2b",
+    "luhn-mod36"
+  ],
+  "author": "Aman Kumar",
+  "license": "MIT"
+}
