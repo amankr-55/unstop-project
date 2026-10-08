@@ -1,6 +1,11 @@
 /**
- * Bharat GST Sentinel - Interactive Visual Playground & Demo Server
+ * Bharat GST Sentinel (v2.0) - Interactive Visual Playground & Demo Server
  * Zero-dependency native Node.js HTTP server for live demonstrations and testing.
+ * Features:
+ * - Real-time Luhn Mod-36 Step-by-Step Math Inspector
+ * - 2026 GST 2.0 IMS (Invoice Management System) Classifier
+ * - Section 34 Bilingual Vendor Demand Notice Generator
+ * - GSTR-2B 3-Way ITC Reconciler
  */
 
 const http = require('http');
@@ -8,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const { validateGSTIN, validateInvoice } = require('./scripts/gst_engine');
+const { validateGSTIN, validateInvoice, generateVendorNotice, calculateChecksumDigitWithSteps } = require('./scripts/gst_engine');
 const { reconcile } = require('./scripts/gstr2b_reconciler');
 
 const PORT = process.env.PORT || 3000;
@@ -22,27 +27,34 @@ const htmlPage = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bharat GST Sentinel | AI Agent Skill Playground</title>
+  <title>Bharat GST Sentinel (v2.0) | AI Agent Skill Playground</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; }
+    code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
   <!-- Navbar -->
-  <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <span class="text-2xl">🛡️</span>
+        <span class="text-3xl">🛡️</span>
         <div>
-          <h1 class="text-lg font-bold text-white tracking-tight">Bharat GST Sentinel</h1>
-          <p class="text-xs text-slate-400">LLM SkillHub Challenge 2026 | Autonomous AI Agent Skill</p>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg font-bold text-white tracking-tight">Bharat GST Sentinel</h1>
+            <span class="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full font-semibold">v2.0 (2026 Edition)</span>
+          </div>
+          <p class="text-xs text-slate-400">Autonomous Indian GST Compliance, 2026 IMS Action Classifier & GSTR-2B Reconciler</p>
         </div>
       </div>
-      <div class="flex items-center space-x-4">
+      <div class="flex items-center space-x-3">
         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-          ● Engine Active
+          ● MCP Server Ready
+        </span>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
+          ● IMS 2026 Compliant
         </span>
         <a href="https://github.com/amankr-55/unstop-project" target="_blank" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition">
           GitHub Repo ↗
@@ -55,14 +67,14 @@ const htmlPage = `<!DOCTYPE html>
     <!-- Hero / Metrics Overview -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
       <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-        <div class="text-xs text-slate-400 font-medium uppercase tracking-wider">Eval Pass Rate</div>
+        <div class="text-xs text-slate-400 font-medium uppercase tracking-wider">Benchmark Pass Rate</div>
         <div class="text-2xl font-bold text-emerald-400 mt-1">100.0%</div>
-        <div class="text-xs text-slate-500 mt-1">10/10 edge cases verified</div>
+        <div class="text-xs text-slate-500 mt-1">10/10 golden edge cases verified</div>
       </div>
       <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
         <div class="text-xs text-slate-400 font-medium uppercase tracking-wider">Checksum Precision</div>
         <div class="text-2xl font-bold text-sky-400 mt-1">Luhn Mod-36</div>
-        <div class="text-xs text-slate-500 mt-1">Zero arithmetic hallucination</div>
+        <div class="text-xs text-slate-500 mt-1">Zero modulo arithmetic drift</div>
       </div>
       <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
         <div class="text-xs text-slate-400 font-medium uppercase tracking-wider">Token Efficiency</div>
@@ -79,17 +91,17 @@ const htmlPage = `<!DOCTYPE html>
     <!-- Playground Tabs -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
       
-      <!-- Section 1: Live GSTIN Checksum Inspector -->
+      <!-- Section 1: Live GSTIN Checksum Inspector with Animated Math Breakdown -->
       <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-5">
         <div class="flex items-center justify-between">
           <h2 class="text-base font-semibold text-white flex items-center space-x-2">
             <span>🔍</span>
-            <span>Live GSTIN Validator (Luhn Mod-36)</span>
+            <span>Live GSTIN Inspector & Luhn Mod-36 Math Tracer</span>
           </h2>
           <span class="text-xs text-slate-400">15-Character Check</span>
         </div>
         <p class="text-xs text-slate-400">
-          Standard LLMs cannot compute modulo arithmetic and hallucinate fake GSTINs. Test any valid or invalid GSTIN below:
+          Standard LLMs cannot compute modulo arithmetic and guess invalid IDs as valid. Test any GSTIN to inspect character-by-character modulo math:
         </p>
 
         <div class="space-y-3">
@@ -98,7 +110,7 @@ const htmlPage = `<!DOCTYPE html>
               placeholder="e.g. 27AAPFU0939F1ZV"
               class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono tracking-wider focus:outline-none focus:border-sky-500 uppercase">
             <button onclick="testGSTIN()" class="bg-sky-600 hover:bg-sky-500 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition">
-              Verify
+              Verify & Trace
             </button>
           </div>
 
@@ -112,6 +124,30 @@ const htmlPage = `<!DOCTYPE html>
         </div>
 
         <div id="gstinResult" class="hidden p-4 rounded-lg border text-xs space-y-2 font-mono"></div>
+
+        <!-- Collapsible Math Steps Table -->
+        <div id="mathStepsContainer" class="hidden space-y-2">
+          <div class="flex items-center justify-between text-xs text-slate-300 font-semibold border-b border-slate-800 pb-1">
+            <span>📐 Step-by-Step ISO/IEC 7064 Mod-36 Math Trace:</span>
+            <span id="mathSummaryText" class="text-sky-400 font-mono"></span>
+          </div>
+          <div class="max-h-48 overflow-y-auto border border-slate-800 rounded bg-slate-950 p-2">
+            <table class="w-full text-[11px] font-mono text-left">
+              <thead>
+                <tr class="text-slate-500 border-b border-slate-800">
+                  <th class="py-1">Pos</th>
+                  <th>Char</th>
+                  <th>Val</th>
+                  <th>Factor</th>
+                  <th>Product</th>
+                  <th>(Q+R)</th>
+                  <th>Running Sum</th>
+                </tr>
+              </thead>
+              <tbody id="mathStepsBody" class="divide-y divide-slate-800/40 text-slate-300"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- Section 2: GSTR-2B 3-Way Reconciler -->
@@ -133,23 +169,23 @@ const htmlPage = `<!DOCTYPE html>
           </button>
         </div>
 
-        <div id="reconResult" class="hidden p-4 rounded-lg bg-slate-950 border border-slate-800 text-xs space-y-3 font-mono">
-          <!-- Filled by JS -->
-        </div>
+        <div id="reconResult" class="hidden p-4 rounded-lg bg-slate-950 border border-slate-800 text-xs space-y-3 font-mono"></div>
       </div>
 
     </div>
 
-    <!-- Section 3: Full B2B Invoice Audit Simulator -->
+    <!-- Section 3: Full B2B Invoice Audit Simulator & 2026 IMS Action -->
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-5">
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-base font-semibold text-white flex items-center space-x-2">
-            <span>⚖️</span>
-            <span>Autonomous Invoice Audit Simulator</span>
-          </h2>
+          <div class="flex items-center space-x-2">
+            <h2 class="text-base font-semibold text-white flex items-center space-x-2">
+              <span>⚖️</span>
+              <span>Autonomous Invoice Audit & 2026 IMS Classifier</span>
+            </h2>
+          </div>
           <p class="text-xs text-slate-400 mt-1">
-            Audits place of supply, tax jurisdictional split (CGST+SGST vs IGST), and Section 170 rounding rules.
+            Audits Place of Supply (POS), assigns 2026 GST Portal IMS Action (ACCEPT / REJECT / PENDING), and drafts Section 34 notices.
           </p>
         </div>
         <div class="flex space-x-2">
@@ -170,7 +206,14 @@ const htmlPage = `<!DOCTYPE html>
         </div>
 
         <div class="space-y-2">
-          <label class="text-xs font-medium text-slate-300">Audit & Statutory Findings:</label>
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-medium text-slate-300">Audit & Statutory Findings:</label>
+            <div id="noticeBtnContainer" class="hidden">
+              <button onclick="openNoticeModal()" class="text-xs bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-1 rounded transition font-medium">
+                📄 View Sec 34 Vendor Notice
+              </button>
+            </div>
+          </div>
           <div id="invoiceAuditOutput" class="h-[285px] overflow-y-auto bg-slate-950 border border-slate-800 rounded-lg p-4 text-xs font-mono text-slate-300">
             Click "Run Autonomous Audit" or choose a sample to inspect findings.
           </div>
@@ -179,18 +222,52 @@ const htmlPage = `<!DOCTYPE html>
     </div>
   </main>
 
+  <!-- Modal for Bilingual Statutory Notice -->
+  <div id="noticeModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-3xl w-full p-6 space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center space-x-2">
+          <span class="text-xl">📄</span>
+          <h3 class="text-base font-bold text-white">Statutory Rectification Notice (Section 34 CGST Act)</h3>
+        </div>
+        <button onclick="closeNoticeModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+      </div>
+
+      <div class="flex space-x-2 border-b border-slate-800 pb-2">
+        <button id="btnNoticeEN" onclick="switchNoticeLang('en')" class="text-xs bg-sky-600 text-white px-3 py-1.5 rounded font-medium">English Notice</button>
+        <button id="btnNoticeHI" onclick="switchNoticeLang('hi')" class="text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 px-3 py-1.5 rounded font-medium">Hindi Notice (हिंदी)</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto">
+        <pre id="noticeContent" class="text-xs font-mono text-slate-300 bg-slate-950 p-4 rounded border border-slate-800 whitespace-pre-wrap"></pre>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button onclick="copyNoticeText()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded text-xs font-medium transition">
+          📋 Copy to Clipboard
+        </button>
+        <button onclick="closeNoticeModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded text-xs transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
   <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
-    Bharat GST Sentinel | Built for AI Agents & LLM SkillHub Challenge 2026 | Released under MIT License
+    Bharat GST Sentinel (v2.0) | Built for AI Agents & LLM SkillHub Challenge 2026 | Released under MIT License
   </footer>
 
   <script>
     let testCases = [];
+    let currentAuditResult = null;
+    let currentNoticeLang = 'en';
 
     async function init() {
       const res = await fetch('/api/test-cases');
       const data = await res.json();
       testCases = data.test_cases;
       loadSampleInvoice(0);
+      testGSTIN();
     }
 
     function loadSampleGSTIN(val) {
@@ -225,6 +302,30 @@ const htmlPage = `<!DOCTYPE html>
           \${data.expected_checksum ? \`<div>Expected Checksum: '\${data.expected_checksum}', Got: '\${data.actual_checksum}'</div>\` : ''}
         \`;
       }
+
+      // Populate math steps
+      const stepsContainer = document.getElementById('mathStepsContainer');
+      const stepsBody = document.getElementById('mathStepsBody');
+      const summaryText = document.getElementById('mathSummaryText');
+
+      if (data.calculation_steps && data.calculation_steps.length > 0) {
+        stepsContainer.classList.remove('hidden');
+        stepsBody.innerHTML = data.calculation_steps.map(s => \`
+          <tr>
+            <td class="py-1 text-slate-500">\${s.position}</td>
+            <td class="font-bold text-white">\${s.char}</td>
+            <td>\${s.code_point}</td>
+            <td class="text-purple-400">×\${s.factor}</td>
+            <td>\${s.product}</td>
+            <td>\${s.digit_sum}</td>
+            <td class="text-emerald-400 font-semibold">\${s.running_sum}</td>
+          </tr>
+        \`).join('');
+        const lastStep = data.calculation_steps[data.calculation_steps.length - 1];
+        summaryText.innerText = \`Total Sum: \${lastStep.running_sum} | Mod-36 Check Digit: '\${data.expected_checksum || data.checksum}'\`;
+      } else {
+        stepsContainer.classList.add('hidden');
+      }
     }
 
     function loadSampleInvoice(idx) {
@@ -236,6 +337,8 @@ const htmlPage = `<!DOCTYPE html>
     async function auditInvoice() {
       const txt = document.getElementById('invoiceJsonInput').value;
       const outDiv = document.getElementById('invoiceAuditOutput');
+      const noticeBtn = document.getElementById('noticeBtnContainer');
+
       try {
         const payload = JSON.parse(txt);
         const res = await fetch('/api/validate-invoice', {
@@ -244,16 +347,30 @@ const htmlPage = `<!DOCTYPE html>
           body: JSON.stringify(payload)
         });
         const data = await res.json();
+        currentAuditResult = data;
 
         let badgeColor = data.status === 'PASSED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
                          data.status === 'REJECTED' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
                          'bg-amber-500/20 text-amber-400 border-amber-500/30';
 
+        let imsColor = data.ims_action_2026 === 'ACCEPT' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                       data.ims_action_2026 === 'REJECT' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
+                       'bg-amber-500/20 text-amber-300 border-amber-500/30';
+
+        if (data.vendor_statutory_notice) {
+          noticeBtn.classList.remove('hidden');
+        } else {
+          noticeBtn.classList.add('hidden');
+        }
+
         let html = \`
           <div class="space-y-3">
             <div class="flex items-center justify-between border-b border-slate-800 pb-2">
               <span class="font-bold text-white">Invoice: \${data.invoice_number}</span>
-              <span class="px-2 py-0.5 rounded text-[11px] font-semibold border \${badgeColor}">\${data.status}</span>
+              <div class="flex space-x-1.5">
+                <span class="px-2 py-0.5 rounded text-[11px] font-semibold border \${badgeColor}">\${data.status}</span>
+                <span class="px-2 py-0.5 rounded text-[11px] font-semibold border \${imsColor}">IMS: \${data.ims_action_2026}</span>
+              </div>
             </div>
             <div>Risk Score: <span class="font-bold \${data.risk_score > 40 ? 'text-red-400' : 'text-emerald-400'}">\${data.risk_score}%</span></div>
             <div>Jurisdiction: <span class="text-sky-300">\${data.place_of_supply.tax_type}</span> (POS: \${data.place_of_supply.code} - \${data.place_of_supply.name})</div>
@@ -273,7 +390,7 @@ const htmlPage = `<!DOCTYPE html>
           });
           html += \`</div>\`;
         } else {
-          html += \`<div class="text-emerald-400 font-semibold pt-2">✨ All statutory compliance checks passed with zero discrepancies.</div>\`;
+          html += \`<div class="text-emerald-400 font-semibold pt-2">✨ All statutory compliance checks passed with zero discrepancies. Safe for IMS auto-approval.</div>\`;
         }
 
         html += \`</div>\`;
@@ -281,6 +398,39 @@ const htmlPage = `<!DOCTYPE html>
       } catch (e) {
         outDiv.innerHTML = '<span class="text-red-400">JSON Parse Error: ' + e.message + '</span>';
       }
+    }
+
+    function openNoticeModal() {
+      if (!currentAuditResult || !currentAuditResult.vendor_statutory_notice) return;
+      document.getElementById('noticeModal').classList.remove('hidden');
+      switchNoticeLang('en');
+    }
+
+    function closeNoticeModal() {
+      document.getElementById('noticeModal').classList.add('hidden');
+    }
+
+    function switchNoticeLang(lang) {
+      currentNoticeLang = lang;
+      const btnEN = document.getElementById('btnNoticeEN');
+      const btnHI = document.getElementById('btnNoticeHI');
+      const content = document.getElementById('noticeContent');
+
+      if (lang === 'en') {
+        btnEN.className = 'text-xs bg-sky-600 text-white px-3 py-1.5 rounded font-medium';
+        btnHI.className = 'text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 px-3 py-1.5 rounded font-medium';
+        content.innerText = currentAuditResult.vendor_statutory_notice.english;
+      } else {
+        btnHI.className = 'text-xs bg-sky-600 text-white px-3 py-1.5 rounded font-medium';
+        btnEN.className = 'text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 px-3 py-1.5 rounded font-medium';
+        content.innerText = currentAuditResult.vendor_statutory_notice.hindi;
+      }
+    }
+
+    function copyNoticeText() {
+      const txt = document.getElementById('noticeContent').innerText;
+      navigator.clipboard.writeText(txt);
+      alert('Statutory notice copied to clipboard!');
     }
 
     async function runReconciliation() {
@@ -385,7 +535,7 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`================================================================`);
-  console.log(`🛡️  Bharat GST Sentinel Playground is running!`);
+  console.log(`🛡️  Bharat GST Sentinel v2.0 Playground is running!`);
   console.log(`🌐  Local URL: http://localhost:${PORT}`);
   console.log(`================================================================`);
 });

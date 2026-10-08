@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 /**
- * Bharat GST Sentinel - Core Deterministic Engine
- * Implements ISO/IEC 7064 & Luhn Mod-36 GSTIN checksum, Indian State Code lookup,
- * CGST/SGST vs IGST jurisdictional validation, and Section 170 rounding checks.
+ * Bharat GST Sentinel - Core Deterministic Engine (2026 GST 2.0 & IMS Compliant)
+ * Implements:
+ * 1. ISO/IEC 7064 & Luhn Mod-36 GSTIN Checksum Engine
+ * 2. 36 Indian States & UTs Jurisdiction Matcher
+ * 3. IGST Act Sec 7 & 8 Jurisdictional Tax Split Logic
+ * 4. CGST Act Sec 170 (₹1.00 Rounding Precision)
+ * 5. Rule 138 (₹50k E-Way Bill Consignment Mandate)
+ * 6. 2026 Invoice Management System (IMS) Action Classifier (ACCEPT / REJECT / PENDING)
+ * 7. Statutory Vendor Rectification Notice Generator (CGST Act Sec 34 Credit/Debit Note)
  */
 
 const fs = require('fs');
@@ -39,21 +45,51 @@ const PAN_ENTITY_TYPES = {
 };
 
 /**
- * Calculates official Luhn Mod-36 check digit for a 14-char GSTIN prefix
+ * Calculates official Luhn Mod-36 check digit with step-by-step breakdown
  */
-function calculateChecksumDigit(gstin14) {
+function calculateChecksumDigitWithSteps(gstin14) {
   if (!gstin14 || gstin14.length !== 14) return null;
+  const steps = [];
   let sum = 0;
   for (let i = 0; i < 14; i++) {
-    const val = CHARS.indexOf(gstin14[i].toUpperCase());
+    const char = gstin14[i].toUpperCase();
+    const val = CHARS.indexOf(char);
     if (val === -1) return null;
     const factor = (i % 2 === 0) ? 1 : 2;
     const product = val * factor;
-    sum += Math.floor(product / 36) + (product % 36);
+    const quotient = Math.floor(product / 36);
+    const remainder = product % 36;
+    const digitSum = quotient + remainder;
+    sum += digitSum;
+
+    steps.push({
+      position: i + 1,
+      char,
+      code_point: val,
+      factor,
+      product,
+      quotient,
+      remainder,
+      digit_sum: digitSum,
+      running_sum: sum
+    });
   }
   const remainder = sum % 36;
-  const checksum = (36 - remainder) % 36;
-  return CHARS[checksum];
+  const checksumIndex = (36 - remainder) % 36;
+  const checkChar = CHARS[checksumIndex];
+
+  return {
+    checkChar,
+    totalSum: sum,
+    remainder,
+    checksumIndex,
+    steps
+  };
+}
+
+function calculateChecksumDigit(gstin14) {
+  const res = calculateChecksumDigitWithSteps(gstin14);
+  return res ? res.checkChar : null;
 }
 
 /**
@@ -83,7 +119,8 @@ function validateGSTIN(gstin) {
   const panEntityTypeChar = cleanGstin.charAt(5);
   const entityType = PAN_ENTITY_TYPES[panEntityTypeChar] || 'Unknown Entity';
 
-  const expectedCheckDigit = calculateChecksumDigit(cleanGstin.substring(0, 14));
+  const checkDetails = calculateChecksumDigitWithSteps(cleanGstin.substring(0, 14));
+  const expectedCheckDigit = checkDetails ? checkDetails.checkChar : null;
   const actualCheckDigit = cleanGstin.charAt(14);
 
   if (expectedCheckDigit !== actualCheckDigit) {
@@ -95,6 +132,7 @@ function validateGSTIN(gstin) {
       entity_type: entityType,
       expected_checksum: expectedCheckDigit,
       actual_checksum: actualCheckDigit,
+      calculation_steps: checkDetails ? checkDetails.steps : [],
       error: `Checksum verification failed. Expected character '${expectedCheckDigit}', found '${actualCheckDigit}'. (Luhn Mod-36 mismatch)`
     };
   }
@@ -105,7 +143,8 @@ function validateGSTIN(gstin) {
     state_code: stateCode,
     state_name: stateInfo.state_name,
     entity_type: entityType,
-    checksum: actualCheckDigit
+    checksum: actualCheckDigit,
+    calculation_steps: checkDetails ? checkDetails.steps : []
   };
 }
 
@@ -127,6 +166,75 @@ function normalizeStateCode(input) {
 }
 
 /**
+ * Generates official Statutory Rectification Notice for vendor (Bilingual EN/HI)
+ */
+function generateVendorNotice(invoice, issues, recipientInfo = {}) {
+  const invNo = invoice.invoice_number || 'UNKNOWN';
+  const invDate = invoice.invoice_date || 'N/A';
+  const supplierGstin = invoice.supplier_gstin || 'N/A';
+
+  const issuesListEN = issues.map((i, idx) => `${idx + 1}. [${i.severity}] ${i.issue} (Ref: ${i.rule})`).join('\n');
+  const issuesListHI = issues.map((i, idx) => `${idx + 1}. [${i.severity}] ${i.issue}`).join('\n');
+
+  const noticeEN = `
+OFFICIAL NOTICE OF TAX INVOICE DISCREPANCY & RECTIFICATION DEMAND
+Issued under Section 34 of Central Goods & Services Tax (CGST) Act, 2017
+
+To: Vendor Accounts Department
+GSTIN: ${supplierGstin}
+Invoice Reference: ${invNo} dated ${invDate}
+
+Dear Accounts Team,
+
+During statutory Input Tax Credit (ITC) compliance verification conducted by our automated GST compliance system, the subject tax invoice was FLAGGED WITH STATUTORY DISCREPANCIES:
+
+DISCREPANCIES IDENTIFIED:
+${issuesListEN}
+
+STATUTORY IMPLICATION:
+Under Section 16(2)(aa) of the CGST Act read with Rule 36(4), credit for the tax charged on the above invoice cannot be claimed in our GSTR-3B due to the above non-compliance.
+
+REQUIRED ACTION WITHIN 7 WORKING DAYS:
+1. Issue a formal Credit/Debit Note under Section 34 of the CGST Act to rectify the discrepancies.
+2. File/amend the outward supply in your GSTR-1 / GSTR-1A return for the current tax period so that the rectified data populates in our Invoice Management System (IMS).
+3. If this invoice was issued under Reverse Charge Mechanism (RCM) or Composition Scheme, provide immediate written clarification.
+
+Please treat this notice as urgent to avoid commercial payment holds.
+
+Regards,
+Tax & Compliance Cell
+  `.trim();
+
+  const noticeHI = `
+कर चालान (Tax Invoice) विसंगति एवं संशोधन सूचना
+(CGST अधिनियम 2017 की धारा 34 के अंतर्गत जारी)
+
+सेवा में: वेंडर लेखा विभाग
+GSTIN: ${supplierGstin}
+बिल संदर्भ: ${invNo} दिनांक ${invDate}
+
+महोदय,
+
+हमारी आंतरिक GST अनुपालन प्रणाली द्वारा किए गए वैधानिक ऑडिट में आपके उपर्युक्त इनवॉइस में निम्नलिखित गंभीर विसंगतियाँ पाई गई हैं:
+
+विसंगतियाँ:
+${issuesListHI}
+
+कानूनी प्रभाव:
+CGST अधिनियम की धारा 16(2)(aa) के तहत, इन गलतियों के कारण हम इस इनवॉइस पर इनपुट टैक्स क्रेडिट (ITC) का दावा नहीं कर सकते।
+
+आवश्यक कार्रवाई (7 कार्यदिवसों के भीतर):
+1. CGST अधिनियम की धारा 34 के तहत तुरंत संशोधित इनवॉइस या क्रेडिट नोट जारी करें।
+2. चालू कर अवधि के लिए अपने GSTR-1 / GSTR-1A में आवश्यक सुधार करें ताकि यह हमारे IMS (Invoice Management System) पोर्टल पर सही प्रदर्शित हो सके।
+
+धन्यवाद,
+लेखा एवं अनुपालन विभाग
+  `.trim();
+
+  return { english: noticeEN, hindi: noticeHI };
+}
+
+/**
  * Validates full Invoice Data Payload
  */
 function validateInvoice(invoice) {
@@ -142,7 +250,7 @@ function validateInvoice(invoice) {
       issue: supplierCheck.error,
       rule: 'CGST Act Section 22 - Valid Supplier Registration'
     });
-    riskScore += 55; // Outright rejection threshold
+    riskScore += 55;
   }
 
   // 2. Recipient GSTIN
@@ -296,15 +404,22 @@ function validateInvoice(invoice) {
   riskScore = Math.min(riskScore, 100);
 
   let status = 'PASSED';
+  let imsAction = 'ACCEPT'; // 2026 GST Portal Invoice Management System Action
+
   if (riskScore >= 50) {
     status = 'REJECTED';
+    imsAction = 'REJECT';
   } else if (riskScore > 0) {
     status = 'PASSED_WITH_WARNINGS';
+    imsAction = 'PENDING_AMENDMENT_GSTR1A';
   }
+
+  const statutoryNotice = issues.length > 0 ? generateVendorNotice(invoice, issues) : null;
 
   return {
     status,
     risk_score: riskScore,
+    ims_action_2026: imsAction,
     invoice_number: invoice.invoice_number || 'UNKNOWN',
     supplier: supplierCheck,
     recipient: recipientCheck,
@@ -319,7 +434,8 @@ function validateInvoice(invoice) {
       charged_tax: { cgst: chargedCGST, sgst: chargedSGST, igst: chargedIGST },
       grand_total: effectiveInvoiceTotal
     },
-    issues
+    issues,
+    vendor_statutory_notice: statutoryNotice
   };
 }
 
@@ -365,7 +481,7 @@ if (require.main === module) {
     }
   } else {
     console.log(`
-Bharat GST Sentinel - CLI Engine
+Bharat GST Sentinel - CLI Engine (2026 GST 2.0 Compliant)
 Usage:
   node scripts/gst_engine.js validate-gstin <15_CHAR_GSTIN>
   node scripts/gst_engine.js validate --json '<JSON_PAYLOAD>'
@@ -379,7 +495,9 @@ module.exports = {
   CHARS,
   STATE_CODES,
   calculateChecksumDigit,
+  calculateChecksumDigitWithSteps,
   validateGSTIN,
   normalizeStateCode,
+  generateVendorNotice,
   validateInvoice
 };
