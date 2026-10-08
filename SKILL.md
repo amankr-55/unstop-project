@@ -1,10 +1,11 @@
 ---
 name: bharat-gst-sentinel
 description: >
-  Use when checking Indian B2B GST invoices, verifying tax calculations, or matching purchase bills with GSTR-2B.
+  Audits Indian B2B Goods and Services Tax invoices, verifies 15-character GSTIN checksums via Luhn Mod-36, and reconciles purchase registers against GSTR-2B returns.
+  Use when checking Indian tax invoices, verifying tax calculations, or matching vendor bills with government returns.
   Trigger when the user asks to "validate this GST number", "check invoice tax split", "verify GSTIN checksum",
-  "audit vendor bill", or "reconcile purchase register with GSTR-2B". Also use when reviewing Indian vendor bills,
-  CGST, SGST, IGST splits, HSN codes, E-Way bills, or Place of Supply rules even if the user does not explicitly mention GST.
+  "audit vendor bill", or "reconcile purchase register with GSTR-2B".
+  Also use when reviewing Indian vendor bills, CGST, SGST, IGST calculations, HSN codes, E-Way bills, or Place of Supply rules even if the user does not explicitly mention GST.
 license: MIT
 metadata:
   llmskillhub:
@@ -24,40 +25,47 @@ allowed-tools: run_command view_file write_to_file
 # Bharat GST Sentinel
 ### Practical Indian GST & Invoice Audit Helper for AI Agents
 
-Most AI models make two big mistakes when looking at Indian bills:
-1. They cannot do the Modulo-36 math required to check if a 15-character GSTIN is real or fake, so they just guess.
-2. They get confused between local state tax (CGST + SGST) and inter-state tax (IGST), which leads to illegal tax claims.
-
-This skill fixes that by having the agent run a fast, offline verification script instead of doing mental math, catching real errors in milliseconds.
+Audits Indian B2B Goods and Services Tax invoices, verifies 15-character GSTIN checksums using the official Luhn Mod-36 algorithm, and reconciles purchase registers against GSTR-2B.
 
 ---
 
-## 1. When to Use This Skill
+## Overview
+
+Most AI models make two critical mistakes when evaluating Indian tax invoices:
+1. They cannot compute Modulo-36 math to verify whether a 15-character GSTIN checksum is genuine, leading to hallucinated numbers.
+2. They confuse local intra-state taxes (CGST + SGST) with inter-state taxes (IGST), creating illegal tax credit claims.
+
+This skill equips the agent with a deterministic local engine to validate invoices and reconcile returns without guesswork.
+
+---
+
+## When to Use
 
 Use when:
-- The user pastes an Indian invoice or bill (in text, JSON, CSV, or table format).
+- The user provides an Indian invoice, bill, or purchase register in text, JSON, CSV, or table format.
 - The user asks to "validate this GST number", "check invoice tax split", "verify GSTIN checksum", or "audit vendor bill".
-- The user asks to "reconcile purchase register with GSTR-2B" to see which tax credits are safe and which are blocked.
-- Checking vendor bills, tax rates, CGST/SGST/IGST splits, or Place of Supply rules even if GST is not explicitly mentioned.
+- The user asks to "reconcile purchase register with GSTR-2B" to determine eligible versus blocked Input Tax Credit.
+- Reviewing Indian vendor bills, tax calculations, CGST/SGST/IGST splits, or Place of Supply rules even if GST is not explicitly mentioned.
 - Determining whether to Accept or Reject an invoice on the 2026 GST portal IMS system.
-- Drafting a quick correction letter to send to a vendor when their bill has tax mistakes.
+- Drafting a formal Section 34 rectification notice for vendors with incorrect bills.
 
 ---
 
-## 2. Step-by-Step Agent Workflow
+## Instructions
 
-Follow these 4 practical steps:
+Follow this structured workflow when auditing invoices:
 
-### Step 1: Read the Bill Details
-Pull out the key fields from the user's text or file:
-- Supplier GSTIN (15 characters)
-- Recipient GSTIN (if present)
-- Invoice Number and Date
+### 1. Ingestion and Field Extraction
+Extract the essential invoice metadata from the user's input:
+- Supplier GSTIN (15 alphanumeric characters)
+- Recipient GSTIN (if provided)
+- Invoice Number and Invoice Date
 - Place of Supply (POS state code or state name)
-- Line items: taxable value, tax rate, CGST, SGST, IGST charged.
+- Line items: description, taxable value, tax rate, CGST, SGST, IGST
+- Total invoice amount
 
-### Step 2: Run the Verification Script (Do NOT guess the math)
-Never try to calculate the 15th checksum character in your head. Run the local script:
+### 2. Deterministic Verification
+Do not calculate checksums mentally. Run the local validation script:
 
 ```bash
 node scripts/gst_engine.js validate --json '<INVOICE_JSON>'
@@ -67,57 +75,64 @@ Or with Python:
 python scripts/gst_engine.py validate --json '<INVOICE_JSON>'
 ```
 
-The script checks:
-- GSTIN Checksum: Uses the official Luhn Mod-36 formula to catch typos and fake IDs.
-- State Code: Checks if the first 2 digits match a real Indian state (01 to 38).
-- Tax Split:
-  - If Supplier State == Place of Supply: Must charge equal CGST + SGST. IGST must be 0.
-  - If Supplier State != Place of Supply: Must charge IGST only. CGST and SGST must be 0.
-- Rounding: Flags differences over 1 Rupee under Section 170.
-- E-Way Bill: Reminds the user if an inter-state goods shipment exceeds 50,000 INR without an E-Way bill.
+The script verifies:
+- GSTIN Checksum: Validates the 15th character via ISO/IEC 7064 Luhn Mod-36.
+- State Code: Checks if the first two digits represent a valid Indian state (01 to 38).
+- Tax Split Rules:
+  - If Supplier State matches Place of Supply: Must charge equal CGST and SGST. IGST must be 0.
+  - If Supplier State differs from Place of Supply: Must charge IGST only. CGST and SGST must be 0.
+- Rounding Rules: Flags discrepancies exceeding 1.00 INR under Section 170.
+- E-Way Bill Rule: Flags inter-state shipments over 50,000 INR without an E-Way bill number.
 
-### Step 3: GSTR-2B Matching (When user provides purchase books)
-If the user wants to reconcile their purchase register against GSTR-2B data:
+### 3. GSTR-2B Reconciliation
+When the user provides a purchase register and GSTR-2B records:
 
 ```bash
 node scripts/gstr2b_reconciler.js --purchase purchase.json --gstr2b gstr2b.json
 ```
-This tells the user:
-- Matched bills: Safe to claim input tax credit (ITC).
-- Missing in GSTR-2B: Vendor did not file their return. Credit is blocked under Section 16(2)(aa).
-- Tax difference: Discrepancy between internal records and portal filings.
+Classifies invoices into:
+- Matched: Invoices matching in both books (safe for ITC).
+- Missing in GSTR-2B: Bills present in books but unfiled by vendor (credit blocked under Section 16(2)(aa)).
+- Tax Discrepancy: Bills where tax values differ between internal records and portal filings.
 
-### Step 4: Present Findings & Next Steps
-Give the user a clear summary:
-- Is the bill clean or rejected?
-- What specific mistakes were found (with plain-English reasons)?
-- If the bill has errors, offer the ready-to-send correction note (available in English and Hindi) so the user can easily forward it to their vendor.
+### 4. Statutory Remediation
+If an invoice has errors, generate a formal correction notice under Section 34 of the CGST Act (available in English and Hindi) so the user can send it to the vendor.
 
 ---
 
-## 3. Real Examples
+## Examples
 
-### Example 1: Checking a GST Number
-User says: "Is 27AAPFU0939F1ZV a valid GSTIN?"
-Agent runs: `node scripts/gst_engine.js validate-gstin 27AAPFU0939F1ZV`
-Agent responds:
-- Valid: Yes
-- Registered State: Maharashtra (Code 27)
-- Business Type: Partnership Firm / LLP
-- Checksum: Matches official Mod-36 check character ('V').
+### Example 1: Validating a GST Number
+User prompt:
+"Please validate this GSTIN: 27AAPFU0939F1ZV"
 
-### Example 2: Catching a Wrong Tax Type
-User pastes a bill where a Mumbai seller billed a Bengaluru client and charged CGST 9% + SGST 9%.
-Agent runs the validator and flags:
-- Issue: Inter-state sale (Maharashtra to Karnataka).
-- Error: Seller incorrectly charged local CGST + SGST instead of IGST. Under Section 7 of the IGST Act, this credit will be rejected by the tax portal.
-- Action: Ask the seller for a corrected invoice with IGST.
+Agent command:
+`node scripts/gst_engine.js validate-gstin 27AAPFU0939F1ZV`
+
+Agent output:
+- Status: VALID
+- State: Maharashtra (Code 27)
+- Entity Type: Partnership Firm / LLP
+- Checksum: Matches expected check character ('V')
+
+### Example 2: Catching an Illegal Tax Split
+User prompt:
+"Check this bill: Mumbai supplier billed a Bengaluru client and charged CGST 900 and SGST 900 on 10,000 INR."
+
+Agent command:
+`node scripts/gst_engine.js validate --json '{"supplier_gstin":"27AAPFU0939F1ZV","place_of_supply":"29","line_items":[{"taxable_value":10000,"tax_rate":18,"cgst":900,"sgst":900}]}'`
+
+Agent output:
+- Status: REJECTED
+- Violation: Inter-state supply from Maharashtra (27) to Karnataka (29).
+- Statutory Rule: IGST Act Section 7 mandates IGST. Local CGST and SGST are illegal.
+- Recommendation: Request revised invoice with 18% IGST from vendor.
 
 ---
 
-## 4. Response Format
+## Output Format
 
-When answering the user, keep your report clean and easy to scan:
+Format the final response clearly for the user:
 
 ```markdown
 ### Invoice Audit Summary
@@ -127,12 +142,20 @@ When answering the user, keep your report clean and easy to scan:
 
 ### Key Checks
 - Supplier GSTIN: [Valid / Invalid reason]
-- Tax Type: [Correct / Wrong tax charged]
+- Tax Split: [Correct / Wrong tax charged]
 - Math Check: [Accurate / Rounding difference]
 
-### Issues Found (if any)
-1. [Explain the exact error simply]
+### Issues Detected
+1. [Explain the exact error and statutory rule]
 
 ### Next Action
-[Clear recommendation: e.g., "Safe to pay and claim credit" OR "Ask vendor for revised invoice with IGST"]
+[Clear recommendation: e.g., "Safe to claim credit" OR "Demand revised invoice under Section 34"]
 ```
+
+---
+
+## Guardrails
+
+1. Never hallucinate GSTIN check digits. Always run the script.
+2. Never approve local CGST+SGST on inter-state sales.
+3. Always advise holding tax credit if an invoice is absent from GSTR-2B.
