@@ -1,0 +1,254 @@
+{
+  "test_cases": [
+    {
+      "id": "TC01",
+      "name": "Clean Intra-State B2B Invoice",
+      "description": "Maharashtra supplier (27) billing Maharashtra recipient (27) with 18% split into CGST (9%) and SGST (9%).",
+      "data": {
+        "invoice_number": "INV-2026-001",
+        "invoice_date": "2026-10-04",
+        "supplier_gstin": "27AAPFU0939F1ZV",
+        "supplier_state": "27",
+        "recipient_gstin": "27AABCU9603R1ZN",
+        "place_of_supply": "27",
+        "line_items": [
+          {
+            "description": "Cloud Architecture Consulting",
+            "hsn_sac": "998315",
+            "taxable_value": 100000.0,
+            "tax_rate": 18.0,
+            "cgst": 9000.0,
+            "sgst": 9000.0,
+            "igst": 0.0
+          }
+        ],
+        "total_invoice_value": 118000.0
+      },
+      "expected": {
+        "status": "PASSED",
+        "tax_type": "INTRA_STATE (CGST + SGST)"
+      }
+    },
+    {
+      "id": "TC02",
+      "name": "Clean Inter-State B2B Invoice",
+      "description": "Maharashtra supplier (27) billing Karnataka recipient (29) with full 18% IGST.",
+      "data": {
+        "invoice_number": "INV-2026-002",
+        "invoice_date": "2026-10-05",
+        "supplier_gstin": "27AAPFU0939F1ZV",
+        "supplier_state": "27",
+        "recipient_gstin": "29AABCU9603R1ZJ",
+        "place_of_supply": "29",
+        "eway_bill_number": "121829102910",
+        "line_items": [
+          {
+            "description": "Server Hardware Enclosure",
+            "hsn_sac": "847130",
+            "taxable_value": 200000.0,
+            "tax_rate": 18.0,
+            "cgst": 0.0,
+            "sgst": 0.0,
+            "igst": 36000.0
+          }
+        ],
+        "total_invoice_value": 236000.0
+      },
+      "expected": {
+        "status": "PASSED",
+        "tax_type": "INTER_STATE (IGST)"
+      }
+    },
+    {
+      "id": "TC03",
+      "name": "Invalid Luhn Mod-36 GSTIN Checksum",
+      "description": "Supplier GSTIN check digit tampered (V replaced with 8). Most LLMs hallucinate validity; Sentinel engine catches it.",
+      "data": {
+        "invoice_number": "INV-2026-003",
+        "invoice_date": "2026-10-05",
+        "supplier_gstin": "27AAPFU0939F1Z8",
+        "supplier_state": "27",
+        "recipient_gstin": "27AABCU9603R1ZN",
+        "place_of_supply": "27",
+        "line_items": [
+          {
+            "description": "Software License",
+            "hsn_sac": "997331",
+            "taxable_value": 50000.0,
+            "tax_rate": 18.0,
+            "cgst": 4500.0,
+            "sgst": 4500.0,
+            "igst": 0.0
+          }
+        ],
+        "total_invoice_value": 59000.0
+      },
+      "expected": {
+        "status": "REJECTED",
+        "expected_issue_substr": "Checksum verification failed"
+      }
+    },
+    {
+      "id": "TC04",
+      "name": "Illegal Jurisdictional Tax Split",
+      "description": "Supplier in Maharashtra (27) billing Karnataka (29) erroneously charged CGST+SGST instead of IGST.",
+      "data": {
+        "invoice_number": "INV-2026-004",
+        "invoice_date": "2026-10-06",
+        "supplier_gstin": "27AAPFU0939F1ZV",
+        "supplier_state": "27",
+        "recipient_gstin": "29AABCU9603R1ZJ",
+        "place_of_supply": "29",
+        "line_items": [
+          {
+            "description": "Consulting Services",
+            "hsn_sac": "998311",
+            "taxable_value": 50000.0,
+            "tax_rate": 18.0,
+            "cgst": 4500.0,
+            "sgst": 4500.0,
+            "igst": 0.0
+          }
+        ],
+        "total_invoice_value": 59000.0
+      },
+      "expected": {
+        "status": "REJECTED",
+        "expected_issue_substr": "Illegal CGST/SGST charged on Inter-State supply"
+      }
+    },
+    {
+      "id": "TC05",
+      "name": "Calculation & Rounding Drift",
+      "description": "Supplier charged ₹12,000 tax on ₹50,000 at 18% (actual tax ₹9,000), violating Section 170.",
+      "data": {
+        "invoice_number": "INV-2026-005",
+        "invoice_date": "2026-10-06",
+        "supplier_gstin": "27AAPFU0939F1ZV",
+        "supplier_state": "27",
+        "recipient_gstin": "27AABCU9603R1ZN",
+        "place_of_supply": "27",
+        "line_items": [
+          {
+            "description": "Data Processing",
+            "hsn_sac": "998431",
+            "taxable_value": 50000.0,
+            "tax_rate": 18.0,
+            "cgst": 6000.0,
+            "sgst": 6000.0,
+            "igst": 0.0
+          }
+        ],
+        "total_invoice_value": 62000.0
+      },
+      "expected": {
+        "status": "PASSED_WITH_WARNINGS",
+        "expected_issue_substr": "Tax calculation mismatch"
+      }
+    },
+    {
+      "id": "TC06",
+      "name": "Non-Existent Indian State Code",
+      "description": "Supplier GSTIN starts with invalid state code 45.",
+      "data": {
+        "invoice_number": "INV-2026-006",
+        "invoice_date": "2026-10-06",
+        "supplier_gstin": "45AAPFU0939F1ZV",
+        "supplier_state": "45",
+        "recipient_gstin": "27AABCU9603R1ZN",
+        "place_of_supply": "27",
+        "line_items": [
+          {
+            "description": "Office Supplies",
+            "hsn_sac": "481710",
+            "taxable_value": 10000.0,
+            "tax_rate": 12.0,
+            "cgst": 0.0,
+            "sgst": 0.0,
+            "igst": 1200.0
+          }
+        ],
+        "total_invoice_value": 11200.0
+      },
+      "expected": {
+        "status": "REJECTED",
+        "expected_issue_substr": "Invalid State Code '45'"
+      }
+    },
+    {
+      "id": "TC07",
+      "name": "Missing Mandatory E-Way Bill",
+      "description": "Inter-state consignment worth ₹85,000 (> ₹50,000 threshold) without E-Way Bill Number.",
+      "data": {
+        "invoice_number": "INV-2026-007",
+        "invoice_date": "2026-10-07",
+        "supplier_gstin": "27AAPFU0939F1ZV",
+        "supplier_state": "27",
+        "recipient_gstin": "29AABCU9603R1ZJ",
+        "place_of_supply": "29",
+        "line_items": [
+          {
+            "description": "Electronics Hardware Batch",
+            "hsn_sac": "850440",
+            "taxable_value": 75000.0,
+            "tax_rate": 18.0,
+            "cgst": 0.0,
+            "sgst": 0.0,
+            "igst": 13500.0
+          }
+        ],
+        "total_invoice_value": 88500.0
+      },
+      "expected": {
+        "status": "PASSED_WITH_WARNINGS",
+        "expected_issue_substr": "exceeds statutory limit of ₹50,000. E-Way Bill generation is mandatory"
+      }
+    }
+  ],
+  "reconciliation_suite": {
+    "purchase_register": [
+      {
+        "invoice_number": "INV/2026/101",
+        "invoice_date": "2026-10-01",
+        "supplier_gstin": "27AAPFU0939F1ZV",
+        "cgst": 4500.0,
+        "sgst": 4500.0,
+        "igst": 0.0
+      },
+      {
+        "invoice_number": "INV/2026/102",
+        "invoice_date": "2026-10-02",
+        "supplier_gstin": "27AAPFU0939F1ZV",
+        "cgst": 9000.0,
+        "sgst": 9000.0,
+        "igst": 0.0
+      },
+      {
+        "invoice_number": "INV/2026/103",
+        "invoice_date": "2026-10-03",
+        "supplier_gstin": "27AAPFU0939F1ZV",
+        "cgst": 2500.0,
+        "sgst": 2500.0,
+        "igst": 0.0
+      }
+    ],
+    "gstr2b_export": [
+      {
+        "invoice_number": "INV/2026/101",
+        "invoice_date": "2026-10-01",
+        "supplier_gstin": "27AAPFU0939F1ZV",
+        "cgst": 4500.0,
+        "sgst": 4500.0,
+        "igst": 0.0
+      },
+      {
+        "invoice_number": "INV/2026/102",
+        "invoice_date": "2026-10-02",
+        "supplier_gstin": "27AAPFU0939F1ZV",
+        "cgst": 6000.0,
+        "sgst": 6000.0,
+        "igst": 0.0
+      }
+    ]
+  }
+}
