@@ -1,31 +1,21 @@
 ---
 name: bharat-gst-sentinel
-description: Autonomous Indian GST Compliance Auditor, 2026 IMS Action Classifier, & GSTR-2B Reconciler. Use whenever processing Indian tax invoices, validating GSTIN checksums (Luhn Mod-36), checking intra-state vs inter-state (CGST/SGST vs IGST) tax splits, generating statutory vendor demand letters under Section 34, or reconciling purchase registers with GSTR-2B.
-version: 2.0.0
-author: Agentic AI Engineer
-tags:
-  - finance
-  - india
-  - gst
-  - compliance
-  - invoice-audit
-  - gstr2b
-  - mcp
-  - ims-2026
-compatibility:
-  - claude-code
-  - cursor
-  - gemini-cli
-  - antigravity
-  - codex
-allowed-tools:
-  - run_command
-  - view_file
-  - write_to_file
-mcp-servers:
-  - name: bharat-gst-sentinel
-    command: node
-    args: ["scripts/mcp_server.js"]
+description: >
+  Autonomous Indian GST Compliance Auditor, 2026 IMS Action Classifier, & GSTR-2B Reconciler. Audits Indian B2B tax invoices, validates Luhn Mod-36 checksums, and reconciles GSTR-2B.
+license: MIT
+metadata:
+  llmskillhub:
+    version: 2.0.0
+    categories: [finance, compliance, agents]
+    keywords: [gst, india, tax, compliance, invoice-audit, gstr2b, luhn-mod36]
+    repository: https://github.com/amankr-55/unstop-project
+    capabilities:
+      network: false
+      filesystem: read-write
+      shell: true
+      secrets: []
+compatibility: claude-code, cursor, gemini-cli, antigravity, codex
+allowed-tools: run_command view_file write_to_file
 ---
 
 # 🛡️ Bharat GST Sentinel (2026 Edition)
