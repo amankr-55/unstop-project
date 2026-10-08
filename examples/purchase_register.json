@@ -1,0 +1,20 @@
+[
+  {
+    "invoice_number": "INV-2026-101",
+    "invoice_date": "2026-10-01",
+    "supplier_gstin": "27AAPFU0939F1ZV",
+    "taxable_value": 50000.0,
+    "cgst": 4500.0,
+    "sgst": 4500.0,
+    "igst": 0.0
+  },
+  {
+    "invoice_number": "INV-2026-102",
+    "invoice_date": "2026-10-02",
+    "supplier_gstin": "27AAPFU0939F1ZV",
+    "taxable_value": 100000.0,
+    "cgst": 9000.0,
+    "sgst": 9000.0,
+    "igst": 0.0
+  }
+]

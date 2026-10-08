@@ -9,9 +9,11 @@ Copy-Item (Join-Path $base "LICENSE") -Destination $tempUnstop -Force
 Copy-Item (Join-Path $base "package.json") -Destination $tempUnstop -Force
 Copy-Item (Join-Path $base "scripts") -Destination $tempUnstop -Recurse -Force
 Copy-Item (Join-Path $base "references") -Destination $tempUnstop -Recurse -Force
+Copy-Item (Join-Path $base "examples") -Destination $tempUnstop -Recurse -Force
 
 if (Test-Path (Join-Path $tempUnstop "scripts\pack.ps1")) { Remove-Item (Join-Path $tempUnstop "scripts\pack.ps1") -Force }
 if (Test-Path (Join-Path $tempUnstop "scripts\create_zips.ps1")) { Remove-Item (Join-Path $tempUnstop "scripts\create_zips.ps1") -Force }
+if (Test-Path (Join-Path $tempUnstop "scripts\test_desc.js")) { Remove-Item (Join-Path $tempUnstop "scripts\test_desc.js") -Force }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -25,5 +27,5 @@ Copy-Item $unstopZip $unstopSkill -Force
 
 Remove-Item "temp_build" -Recurse -Force
 
-Write-Host "Created unstop.zip and unstop.skill successfully!"
+Write-Host "Created unstop.zip and unstop.skill with scripts and examples successfully!"
 Get-Item $unstopZip, $unstopSkill | Select-Object Name, Length

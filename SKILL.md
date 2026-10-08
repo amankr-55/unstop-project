@@ -1,11 +1,10 @@
 ---
 name: bharat-gst-sentinel
 description: >
-  Audits Indian B2B Goods and Services Tax invoices, verifies 15-character GSTIN checksums via Luhn Mod-36, and reconciles purchase registers against GSTR-2B returns.
-  Use when checking Indian tax invoices, verifying tax calculations, or matching vendor bills with government returns.
-  Trigger when the user asks to "validate this GST number", "check invoice tax split", "verify GSTIN checksum",
-  "audit vendor bill", or "reconcile purchase register with GSTR-2B".
-  Also use when reviewing Indian vendor bills, CGST, SGST, IGST calculations, HSN codes, E-Way bills, or Place of Supply rules even if the user does not explicitly mention GST.
+  Audits Indian B2B GST invoices, verifies Luhn Mod-36 checksums, and reconciles purchase registers with GSTR-2B returns.
+  Use when checking Indian tax bills, verifying tax math, or reviewing Place of Supply rules.
+  Trigger when asked to "validate this GST number", "check invoice tax split", "verify GSTIN checksum",
+  or "reconcile GSTR-2B", even if GST is not explicitly mentioned.
 license: MIT
 metadata:
   llmskillhub:
